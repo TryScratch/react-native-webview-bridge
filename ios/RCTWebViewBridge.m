@@ -37,6 +37,7 @@ NSString *const RCTWebViewBridgeSchema = @"wvb";
 @property (nonatomic, copy) RCTDirectEventBlock onLoadingError;
 @property (nonatomic, copy) RCTDirectEventBlock onShouldStartLoadWithRequest;
 @property (nonatomic, copy) RCTDirectEventBlock onBridgeMessage;
+@property (nonatomic) BOOL overlayKeyboard;
 
 @end
 
@@ -54,6 +55,8 @@ NSString *const RCTWebViewBridgeSchema = @"wvb";
     _contentInset = UIEdgeInsetsZero;
     _webView = [[UIWebView alloc] initWithFrame:self.bounds];
     _webView.delegate = self;
+    // set the webView's scrollView delegate to this view so we are able to prevent scrolling
+    _webView.scrollView.delegate = self;
     [self addSubview:_webView];
   }
   return self;
@@ -348,6 +351,19 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
       doc.dispatchEvent(customEvent);
     }(window));
   );
+}
+
+// thanks to: http://stackoverflow.com/a/16373994/222622
+// also: http://stackoverflow.com/a/18668172/222622
+// Prevents the web view from scrolling up. Usually this is done in order
+// to ensure that form inputs are not covered by the keyboard after it opens,
+// but sometimes this functionality is not desireable. Here we can disable it
+// if the property "overlayKeyboard" is set to true on the React Native component
+- (void)scrollViewDidScroll:(UIScrollView *)scrollView
+{
+  if (_overlayKeyboard == YES) {
+    scrollView.contentOffset = CGPointZero;
+  }
 }
 
 @end
