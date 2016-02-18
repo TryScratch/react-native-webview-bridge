@@ -192,6 +192,7 @@ var WebViewBridge = React.createClass({
         scalesPageToFit={this.props.scalesPageToFit}
         allowsInlineMediaPlayback={this.props.allowsInlineMediaPlayback}
         onBridgeMessage={onBridgeMessage}
+        overlayKeyboard={this.props.overlayKeyboard}
       />;
 
     return (
