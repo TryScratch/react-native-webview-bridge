@@ -102,6 +102,7 @@ var WebViewBridge = React.createClass({
      */
     onBridgeMessage: PropTypes.func,
     overlayKeyboard: PropTypes.bool,
+    hideKeyboardAccessoryBar: PropTypes.bool,
   },
 
   getInitialState: function() {
@@ -193,6 +194,7 @@ var WebViewBridge = React.createClass({
         allowsInlineMediaPlayback={this.props.allowsInlineMediaPlayback}
         onBridgeMessage={onBridgeMessage}
         overlayKeyboard={this.props.overlayKeyboard}
+        hideKeyboardAccessoryBar={this.props.hideKeyboardAccessoryBar}
       />;
 
     return (
