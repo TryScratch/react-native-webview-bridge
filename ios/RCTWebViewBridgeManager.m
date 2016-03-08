@@ -51,7 +51,6 @@ RCT_EXPORT_VIEW_PROPERTY(onShouldStartLoadWithRequest, RCTDirectEventBlock)
 RCT_REMAP_VIEW_PROPERTY(allowsInlineMediaPlayback, _webView.allowsInlineMediaPlayback, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(onBridgeMessage, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(overlayKeyboard, BOOL)
-// RCT_EXPORT_VIEW_PROPERTY(hideKeyboardAccessoryBar, BOOL)
 
 - (NSDictionary<NSString *, id> *)constantsToExport
 {
