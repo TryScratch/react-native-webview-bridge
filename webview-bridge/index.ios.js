@@ -17,6 +17,7 @@
 var React = require('react-native');
 var invariant = require('invariant');
 var keyMirror = require('keymirror');
+var resolveAssetSource = require('react-native/Libraries/Image/resolveAssetSource');
 
 var {
   ActivityIndicatorIOS,
@@ -102,7 +103,7 @@ var WebViewBridge = React.createClass({
      */
     onBridgeMessage: PropTypes.func,
     overlayKeyboard: PropTypes.bool,
-    hideKeyboardAccessoryBar: PropTypes.bool,
+    hideKeyboardAccessoryView: PropTypes.bool,
   },
 
   getInitialState: function() {
@@ -174,27 +175,22 @@ var WebViewBridge = React.createClass({
       }
     };
 
+    let {source, ...props} = {...this.props};
+    delete props.onBridgeMessage;
+    delete props.onShouldStartLoadWithRequest;
+
     var webView =
       <RCTWebViewBridge
         ref={RCT_WEBVIEWBRIDGE_REF}
         key="webViewKey"
+        {...props}
+        source={resolveAssetSource(source)}
         style={webViewStyles}
-        url={this.props.url}
-        html={this.props.html}
-        injectedJavaScript={this.props.injectedJavaScript}
-        bounces={this.props.bounces}
-        scrollEnabled={this.props.scrollEnabled}
-        contentInset={this.props.contentInset}
-        automaticallyAdjustContentInsets={this.props.automaticallyAdjustContentInsets}
         onLoadingStart={this.onLoadingStart}
         onLoadingFinish={this.onLoadingFinish}
         onLoadingError={this.onLoadingError}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        scalesPageToFit={this.props.scalesPageToFit}
-        allowsInlineMediaPlayback={this.props.allowsInlineMediaPlayback}
         onBridgeMessage={onBridgeMessage}
-        overlayKeyboard={this.props.overlayKeyboard}
-        hideKeyboardAccessoryBar={this.props.hideKeyboardAccessoryBar}
       />;
 
     return (

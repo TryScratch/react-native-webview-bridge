@@ -15,6 +15,7 @@
 #import <UIKit/UIKit.h>
 
 #import "RCTAutoInsetsProtocol.h"
+#import "RCTConvert.h"
 #import "RCTEventDispatcher.h"
 #import "RCTLog.h"
 #import "RCTUtils.h"
@@ -25,10 +26,19 @@
 //source: http://stackoverflow.com/a/23387659/828487
 #define NSStringMultiline(...) [[NSString alloc] initWithCString:#__VA_ARGS__ encoding:NSUTF8StringEncoding]
 
-
 //we don'e need this one since it has been defined in RCTWebView.m
 //NSString *const RCTJSNavigationScheme = @"react-js-navigation";
 NSString *const RCTWebViewBridgeSchema = @"wvb";
+
+// runtime trick to remove UIWebview keyboard default toolbar
+// see: http://stackoverflow.com/questions/19033292/ios-7-uiwebview-keyboard-issue/19042279#19042279
+@interface _SwizzleHelper : NSObject @end
+@implementation _SwizzleHelper
+-(id)inputAccessoryView
+{
+  return nil;
+}
+@end
 
 @interface RCTWebViewBridge () <UIWebViewDelegate, RCTAutoInsetsProtocol>
 
@@ -101,26 +111,34 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
   return _webView.request.URL;
 }
 
-- (void)setURL:(NSURL *)URL
+- (void)setSource:(NSDictionary *)source
 {
-  // Because of the way React works, as pages redirect, we actually end up
-  // passing the redirect urls back here, so we ignore them if trying to load
-  // the same url. We'll expose a call to 'reload' to allow a user to load
-  // the existing page.
-  if ([URL isEqual:_webView.request.URL]) {
-    return;
-  }
-  if (!URL) {
-    // Clear the webview
-    [_webView loadHTMLString:@"" baseURL:nil];
-    return;
-  }
-  [_webView loadRequest:[NSURLRequest requestWithURL:URL]];
-}
+  if (![_source isEqualToDictionary:source]) {
+    _source = [source copy];
 
-- (void)setHTML:(NSString *)HTML
-{
-  [_webView loadHTMLString:HTML baseURL:nil];
+    // Check for a static html source first
+    NSString *html = [RCTConvert NSString:source[@"html"]];
+    if (html) {
+      NSURL *baseURL = [RCTConvert NSURL:source[@"baseUrl"]];
+      [_webView loadHTMLString:html baseURL:baseURL];
+      return;
+    }
+
+    NSURLRequest *request = [RCTConvert NSURLRequest:source];
+    // Because of the way React works, as pages redirect, we actually end up
+    // passing the redirect urls back here, so we ignore them if trying to load
+    // the same url. We'll expose a call to 'reload' to allow a user to load
+    // the existing page.
+    if ([request.URL isEqual:_webView.request.URL]) {
+      return;
+    }
+    if (!request.URL) {
+      // Clear the webview
+      [_webView loadHTMLString:@"" baseURL:nil];
+      return;
+    }
+    [_webView loadRequest:request];
+  }
 }
 
 - (void)layoutSubviews
@@ -167,6 +185,37 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
   [RCTView autoAdjustInsetsForView:self
                     withScrollView:_webView.scrollView
                       updateOffset:YES];
+}
+
+-(void)setHideKeyboardAccessoryView:(BOOL)hideKeyboardAccessoryView
+{
+  if (!hideKeyboardAccessoryView) {
+    return;
+  }
+
+  UIView* subview;
+  for (UIView* view in _webView.scrollView.subviews) {
+    if([[view.class description] hasPrefix:@"UIWeb"])
+      subview = view;
+  }
+
+  if(subview == nil) return;
+
+  NSString* name = [NSString stringWithFormat:@"%@_SwizzleHelper", subview.class.superclass];
+  Class newClass = NSClassFromString(name);
+
+  if(newClass == nil)
+  {
+    newClass = objc_allocateClassPair(subview.class, [name cStringUsingEncoding:NSASCIIStringEncoding], 0);
+    if(!newClass) return;
+
+    Method method = class_getInstanceMethod([_SwizzleHelper class], @selector(inputAccessoryView));
+      class_addMethod(newClass, @selector(inputAccessoryView), method_getImplementation(method), method_getTypeEncoding(method));
+
+    objc_registerClassPair(newClass);
+  }
+
+  object_setClass(subview, newClass);
 }
 
 #pragma mark - UIWebViewDelegate methods
@@ -366,61 +415,61 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     scrollView.contentOffset = CGPointZero;
   }
 
-  [self setHackishlyHidesInputAccessoryView:_hideKeyboardAccessoryBar];
+  // [self setHackishlyHidesInputAccessoryView:_hideKeyboardAccessoryBar];
 }
 
 // thanks to: https://github.com/driftyco/ionic-plugin-keyboard
-static const char * const hackishFixClassName = "UIWebBrowserViewMinusAccessoryView";
-static Class hackishFixClass = Nil;
-
-- (UIView *)hackishlyFoundBrowserView {
-    UIScrollView *scrollView = _webView.scrollView;
-
-    UIView *browserView = nil;
-    for (UIView *subview in scrollView.subviews) {
-        if ([NSStringFromClass([subview class]) hasPrefix:@"UIWebBrowserView"]) {
-            browserView = subview;
-            break;
-        }
-    }
-    return browserView;
-}
-
-- (id)methodReturningNil {
-    return nil;
-}
-
-- (void)ensureHackishSubclassExistsOfBrowserViewClass:(Class)browserViewClass {
-    if (!hackishFixClass) {
-        Class newClass = objc_allocateClassPair(browserViewClass, hackishFixClassName, 0);
-        IMP nilImp = [self methodForSelector:@selector(methodReturningNil)];
-        class_addMethod(newClass, @selector(inputAccessoryView), nilImp, "@@:");
-        objc_registerClassPair(newClass);
-
-        hackishFixClass = newClass;
-    }
-}
-
-- (BOOL) hackishlyHidesInputAccessoryView {
-    UIView *browserView = [self hackishlyFoundBrowserView];
-    return [browserView class] == hackishFixClass;
-}
-
-- (void) setHackishlyHidesInputAccessoryView:(BOOL)value {
-    UIView *browserView = [self hackishlyFoundBrowserView];
-    if (browserView == nil) {
-        return;
-    }
-    [self ensureHackishSubclassExistsOfBrowserViewClass:[browserView class]];
-
-    if (value) {
-        object_setClass(browserView, hackishFixClass);
-    }
-    else {
-        Class normalClass = objc_getClass("UIWebBrowserView");
-        object_setClass(browserView, normalClass);
-    }
-    [browserView reloadInputViews];
-}
+// static const char * const hackishFixClassName = "UIWebBrowserViewMinusAccessoryView";
+// static Class hackishFixClass = Nil;
+//
+// - (UIView *)hackishlyFoundBrowserView {
+//     UIScrollView *scrollView = _webView.scrollView;
+//
+//     UIView *browserView = nil;
+//     for (UIView *subview in scrollView.subviews) {
+//         if ([NSStringFromClass([subview class]) hasPrefix:@"UIWebBrowserView"]) {
+//             browserView = subview;
+//             break;
+//         }
+//     }
+//     return browserView;
+// }
+//
+// - (id)methodReturningNil {
+//     return nil;
+// }
+//
+// - (void)ensureHackishSubclassExistsOfBrowserViewClass:(Class)browserViewClass {
+//     if (!hackishFixClass) {
+//         Class newClass = objc_allocateClassPair(browserViewClass, hackishFixClassName, 0);
+//         IMP nilImp = [self methodForSelector:@selector(methodReturningNil)];
+//         class_addMethod(newClass, @selector(inputAccessoryView), nilImp, "@@:");
+//         objc_registerClassPair(newClass);
+//
+//         hackishFixClass = newClass;
+//     }
+// }
+//
+// - (BOOL) hackishlyHidesInputAccessoryView {
+//     UIView *browserView = [self hackishlyFoundBrowserView];
+//     return [browserView class] == hackishFixClass;
+// }
+//
+// - (void) setHackishlyHidesInputAccessoryView:(BOOL)value {
+//     UIView *browserView = [self hackishlyFoundBrowserView];
+//     if (browserView == nil) {
+//         return;
+//     }
+//     [self ensureHackishSubclassExistsOfBrowserViewClass:[browserView class]];
+//
+//     if (value) {
+//         object_setClass(browserView, hackishFixClass);
+//     }
+//     else {
+//         Class normalClass = objc_getClass("UIWebBrowserView");
+//         object_setClass(browserView, normalClass);
+//     }
+//     [browserView reloadInputViews];
+// }
 
 @end

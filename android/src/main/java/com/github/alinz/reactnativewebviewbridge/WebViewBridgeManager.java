@@ -72,6 +72,7 @@ public class WebViewBridgeManager extends ReactWebViewManager {
     if (!initializedBridge) {
       root.addJavascriptInterface(new JavascriptBridge((ReactContext)root.getContext()), "WebViewBridgeAndroid");
       initializedBridge = true;
+      root.reload();
     }
 
     //this code needs to be executed everytime a url changes.
@@ -79,13 +80,13 @@ public class WebViewBridgeManager extends ReactWebViewManager {
     + "(function() {"
         + "if (window.WebViewBridge) return;"
         + "var customEvent = document.createEvent('Event');"
-        + "WebViewBridge = {"
+        + "var WebViewBridge = {"
             + "send: function(message) { WebViewBridgeAndroid.send(message); },"
             + "onMessage: function() {}"
         + "};"
         + "window.WebViewBridge = WebViewBridge;"
         + "customEvent.initEvent('WebViewBridge', true, true);"
         + "document.dispatchEvent(customEvent);"
-    +"}())", null);
+    +"}());", null);
   }
 }
