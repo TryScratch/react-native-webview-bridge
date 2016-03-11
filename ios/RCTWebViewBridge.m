@@ -48,7 +48,7 @@ NSString *const RCTWebViewBridgeSchema = @"wvb";
 @property (nonatomic, copy) RCTDirectEventBlock onShouldStartLoadWithRequest;
 @property (nonatomic, copy) RCTDirectEventBlock onBridgeMessage;
 @property (nonatomic) BOOL overlayKeyboard;
-@property (nonatomic) BOOL hideKeyboardAccessoryBar;
+@property (nonatomic) BOOL keyboardDisplayRequiresUserAction;
 
 @end
 
@@ -68,6 +68,7 @@ NSString *const RCTWebViewBridgeSchema = @"wvb";
     _webView.delegate = self;
     // set the webView's scrollView delegate to this view so we are able to prevent scrolling
     _webView.scrollView.delegate = self;
+    _webView.keyboardDisplayRequiresUserAction = _keyboardDisplayRequiresUserAction;
     [self addSubview:_webView];
   }
   return self;
