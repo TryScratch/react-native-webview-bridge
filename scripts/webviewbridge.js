@@ -32,9 +32,9 @@
       //reason I need this setTmeout is to return this function as fast as
       //possible to release the native side thread.
       setTimeout(function () {
-        var message = receiveQueue.pop();
+        var message = receiveQueue.shift();
         callFunc(WebViewBridge.onMessage, message);
-      }, 15); //this magic number is just a random small value. I don't like 0.
+      }, 0); // small number
     },
     __fetch__: function () {
       //since our sendQueue array only contains string, and our connection to native
